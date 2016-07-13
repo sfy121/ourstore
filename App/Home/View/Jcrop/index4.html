@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        <title>jQuery图像照片剪裁插件Jcrop</title>
+        <script type="text/javascript">
+            function doShow(picname){
+                alert(picname);
+
+            }
+
+        </script>
+    </head> 
+    <body>
+        <h2>图片无刷新上传和在线裁剪</h2>
+        <iframe name="myframe" frameborder="0" style="display:none;"></iframe>
+        <form action="__URL__/upload" target="myframe" enctype="multipart/form-data" method="post" >
+            图片：<input type="file" name="photo" />
+            <input type="submit" value="上传" >
+        </form>
+        <div id="did"></div>
+        <button onclick="doJcrop()">确认裁剪</button>
+    </body>
+</html>

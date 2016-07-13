@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <title>ThinkPHP框架模板实例</title>
+    </head>
+    <body>
+        <h2>ThinkPHP框架模板实例--模板的输出</h2>
+        <ul>
+            <li><a href="__URL__/index">返回首页</a></li>
+        </ul>
+        输出变量：{$name}<br/>
+        默认输出：你好 {$username|default="游客"}<br/>
+        输出数组：{$stu.name}: {$stu['sex']}<br/>
+        输出get中的信息：{$Think.get.id}<br/>
+        输出POST中的信息：{$Think.post.username}<br/>
+        在模板中使用函数：{:date("Y-m-d")}<br/>
+        在模板中使用自定义函数：{:aa()}<br/>
+        <h3>模板替换<h3>
+        <ul>
+            <li>_ _ROOT_ _:__ROOT__</li>
+            <li>_ _APP_ _:__APP__</li>
+            <li>_ _MODULE_ _:__MODULE__</li>
+            <li>_ _CONTROLLER_ _:__CONTROLLER__</li>
+            <li>_ _URL_ _:__URL__</li>
+            <li>_ _ACTION_ _:__ACTION__</li>
+            <li>_ _SELF_ _:__SELF__</li>
+            <li>_ _PUBLIC_ _:__PUBLIC__</li>
+           
+        </ul>
+    </body>
+</html>
