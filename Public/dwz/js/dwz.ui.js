@@ -13,7 +13,7 @@ function initEnv() {
 
 	$(window).resize(function(){
 		initLayout();
-		$(this).trigger("resizeGrid");
+		$(this).trigger(DWZ.eventType.resizeGrid);
 	});
 
 	var ajaxbg = $("#background,#progressBar");
@@ -56,6 +56,8 @@ function initLayout(){
 
 function initUI(_box){
 	var $p = $(_box || document);
+
+	$("div.panel", $p).jPanel();
 
 	//tables
 	$("table.table", $p).jTable();
@@ -108,31 +110,20 @@ function initUI(_box){
 	}
 	
 	if ($.fn.uploadify) {
-		$(":file[uploader]", $p).each(function(){
+		$(":file[uploaderOption]", $p).each(function(){
 			var $this = $(this);
 			var options = {
-				uploader: $this.attr("uploader"),
-				script: $this.attr("script"),
-				cancelImg: $this.attr("cancelImg"),
-				queueID: $this.attr("fileQueue") || "fileQueue",
-				fileDesc: $this.attr("fileDesc") || "*.jpg;*.jpeg;*.gif;*.png;*.pdf",
-				fileExt : $this.attr("fileExt") || "*.jpg;*.jpeg;*.gif;*.png;*.pdf",
-				folder	: $this.attr("folder"),
+				fileObjName: $this.attr("name") || "file",
 				auto: true,
 				multi: true,
-				onError:uploadifyError,
-				onComplete: uploadifyComplete,
-				onAllComplete: uploadifyAllComplete
+				onUploadError: uploadifyError
 			};
-			if ($this.attr("onComplete")) {
-				options.onComplete = DWZ.jsonEval($this.attr("onComplete"));
-			}
-			if ($this.attr("onAllComplete")) {
-				options.onAllComplete = DWZ.jsonEval($this.attr("onAllComplete"));
-			}
-			if ($this.attr("scriptData")) {
-				options.scriptData = DWZ.jsonEval($this.attr("scriptData"));
-			}
+			
+			var uploaderOption = DWZ.jsonEval($this.attr("uploaderOption"));
+			$.extend(options, uploaderOption);
+
+			DWZ.debug("uploaderOption: "+DWZ.obj2str(uploaderOption));
+			
 			$this.uploadify(options);
 		});
 	}
@@ -154,12 +145,12 @@ function initUI(_box){
 	
 	//tabsPageHeader
 	$("div.tabsHeader li, div.tabsPageHeader li, div.accordionHeader, div.accordion", $p).hoverClass("hover");
-	
-	$("div.panel", $p).jPanel();
 
 	//validate form
 	$("form.required-validate", $p).each(function(){
-		$(this).validate({
+		var $form = $(this);
+		$form.validate({
+			onsubmit: false,
 			focusInvalid: false,
 			focusCleanup: true,
 			errorElement: "span",
@@ -172,15 +163,24 @@ function initUI(_box){
 				} 
 			}
 		});
+		
+		$form.find('input[customvalid]').each(function(){
+			var $input = $(this);
+			$input.rules("add", {
+				customvalid: $input.attr("customvalid")
+			})
+		});
 	});
 
 	if ($.fn.datepicker){
 		$('input.date', $p).each(function(){
 			var $this = $(this);
 			var opts = {};
-			if ($this.attr("format")) opts.pattern = $this.attr("format");
-			if ($this.attr("yearstart")) opts.yearstart = $this.attr("yearstart");
-			if ($this.attr("yearend")) opts.yearend = $this.attr("yearend");
+			if ($this.attr("dateFmt")) opts.pattern = $this.attr("dateFmt");
+			if ($this.attr("minDate")) opts.minDate = $this.attr("minDate");
+			if ($this.attr("maxDate")) opts.maxDate = $this.attr("maxDate");
+			if ($this.attr("mmStep")) opts.mmStep = $this.attr("mmStep");
+			if ($this.attr("ssStep")) opts.ssStep = $this.attr("ssStep");
 			$this.datepicker(opts);
 		});
 	}
@@ -204,7 +204,7 @@ function initUI(_box){
 			event.preventDefault();
 		});
 	});
-	
+
 	//dialogs
 	$("a[target=dialog]", $p).each(function(){
 		$(this).click(function(event){
@@ -277,7 +277,10 @@ function initUI(_box){
 	if ($.fn.selectedTodo) $("a[target=selectedTodo]", $p).selectedTodo();
 	if ($.fn.pagerForm) $("form[rel=pagerForm]", $p).pagerForm({parentBox:$p});
 
-	// 这里放其他第三方jQuery插件...
+	// 执行第三方jQuery插件【 第三方jQuery插件注册：DWZ.regPlugins.push(function($p){}); 】
+	$.each(DWZ.regPlugins, function(index, fn){
+		fn($p);
+	});
 }
 
 

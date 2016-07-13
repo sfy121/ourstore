@@ -1,8 +1,8 @@
 <form id="pagerForm" action="__URL__/index" method="post">
 	<input type="hidden" name="pageNum" value="{$currentPage|default='1'}" />
 	<input type="hidden" name="numPerPage" value="{$numPerPage}" /><!--每页显示多少条-->
-	<input type="hidden" name="_order" value="{$Think.request._order}"/>
-	<input type="hidden" name="_sort" value="{$Think.request._sort}"/>
+	<input type="hidden" name="orderField" value="{$Think.request._order}"/>
+	<input type="hidden" name="orderDirection" value="{$Think.request._sort}"/>
 </form>
 <div class="pageHeader">
 	<form rel="pagerForm" onsubmit="return navTabSearch(this);" method="post">
@@ -11,15 +11,9 @@
 		<table class="searchContent">
 			<tr>
 				<td>
-					<b>搜索</b> &nbsp; 关键字：<input type="text" size="10" name="keyword" value="{$Think.post.keyword}" /> [ 账号、姓名 ]
-                    &nbsp;&nbsp;&nbsp;角色：
-                          <select name="roleid">
-                            <option value="">-全部-</option>
-                            <volist name="reslist" id="vo">
-                                <option value="{$vo.id}">{$vo.name}</option>
-                            </volist>
-                          </select>
-                </td>
+					<b>搜索</b> &nbsp; 关键字：<input type="text" name="keyword" value="{$Think.post.keyword}" /> [姓名]
+						&nbsp;&nbsp;班级：<input size="10" type="text" name="classid" value="{$Think.post.classid}"/>
+				</td>
 				<td>
 					<div class="buttonActive"><div class="buttonContent"><button type="submit">检索</button></div></div>
 				</td>
@@ -31,8 +25,8 @@
 <div class="pageContent">
 	<div class="panelBar">
 		<ul class="toolBar">
-			<li><a class="add" href="__URL__/add" target="dialog" width="550" height="380" rel="user_msg" title="添加用户信息"><span>添加</span></a></li>
-			<li><a class="delete" href="__URL__/del/id/{$Think.config.TMPL_L_DELIM}item_id{$Think.config.TMPL_R_DELIM}/navTabId/listuser" target="ajaxTodo" title="确定要删除吗?"><span>删除</span></a></li>
+			<li><a class="add" href="__URL__/add" target="dialog" width="550" height="380" rel="user_msg" title="添加会员信息"><span>添加</span></a></li>
+			<li><a class="delete" href="__URL__/del/id/{$Think.config.TMPL_L_DELIM}item_id{$Think.config.TMPL_R_DELIM}/navTabId/liststu" target="ajaxTodo" title="确定要删除吗?"><span>删除</span></a></li>
 			<li><a class="edit" href="__URL__/edit/id/{$Think.config.TMPL_L_DELIM}item_id{$Think.config.TMPL_R_DELIM}"  width="550" height="380" target="dialog"><span>修改</span></a></li>
 			<li class="line">line</li>
 			<li><a class="icon"  href="javascript:navTabPageBreak()"><span>刷新</span></a></li>
@@ -43,20 +37,39 @@
 		<thead>
 			<tr>
 				<th width="40">ID</th>
-				<th width="80">账号</th>
-				<th width="80">角色信息</th>
-				<th width="40">真实姓名</th>
-				<th width="40">操作</th>
+				<th width="150" orderField="name" <if condition="$Think.request._order eq 'name'">class="{$Think.request._sort}"</if>>用户名</th>
+				<th width="150">真实姓名</th>
+				<th width="150" >密码</th>
+				<th width="150">性别</th>
+				<th width="150">邮箱</th>
+				<th width="150">用户积分</th>
+				<th width="150">电话</th>
+				<th width="150">QQ</th>
+				<th width="150">注册时间</th>
+				<th width="150">头像</th>
+				<th width="150">状态</th>
+				<th width="150">权限</th>
+				<th width="150">操作</th>
 			</tr>
 		</thead>
 		<tbody>
 			<volist name="list" id="vo">
 				<tr target="item_id" rel="{$vo.id}">
 					<td>{$vo.id}</td>
-					<td>{$vo.username}</td>
-					<td>{$vo.roles}</td>
-					<td>{$vo.name}</td>
-					<td><a style="color:blue" target="dialog" href="__MODULE__/User/rolelist/uid/{$vo.id}">分配角色</a></td>
+					<td>{$vo.user_name}</td>
+					<td>{$vo.user_realname}</td>
+					<td>{$vo.userpass|MD5}</td>
+					<td>{$vo['user_sex']==1?'男':'女'}</td>
+					<td>{$vo.user_email}</td>
+					<td>{$vo.user_oxben}</td>
+					<td>{$vo.user_tel}</td>
+					<td>{$vo.user_qq}</td>
+					<td>{$vo.user_time|date="Y-m-d",###}</td>
+					<!-- <td>{:date("Y-m-d",$vo['user_time'])}</td> -->
+					<td>{$vo.user_avatar}</td>
+					<td>{$vo['user_state']==1?'启用':'禁用'}</td>
+					<td>{$vo['user_type']==2?'会员':''}</td>
+					<td><a class="edit" href="__URL__/rpass/id/{$vo.id}item_id{$Think.config.TMPL_R_DELIM}"   target="dialog">重置密码</a><a href="__URL__/address/id/{$vo.id}item_id{$Think.config.TMPL_R_DELIM}"></a></td>
 				</tr>
 			</volist>
 		</tbody>
@@ -73,6 +86,6 @@
 			</select>
 			<span>共{$totalCount}条</span>
 		</div>
-		<div class="pagination" targetType="navTab" totalCount="{$totalCount}" numPerPage="{$numPerPage}" pageNumShown="10" currentPage="{$currentPage}"></div>
+		<div class="pagination" targetType="navTab" totalCount="{$totalCount}" numPerPage="{$numPerPage}" pageNumShown="5" currentPage="{$currentPage}"></div>
 	</div>
 </div>

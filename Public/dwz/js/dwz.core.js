@@ -4,12 +4,17 @@
  */
 
 var DWZ = {
+	regPlugins: [], // [function($parent){} ...] 
 	// sbar: show sidebar
 	keyCode: {
 		ENTER: 13, ESC: 27, END: 35, HOME: 36,
 		SHIFT: 16, TAB: 9,
 		LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
 		DELETE: 46, BACKSPACE:8
+	},
+	eventType: {
+		pageClear:"pageClear",	// 用于重新ajaxLoad、关闭nabTab, 关闭dialog时，去除xheditor等需要特殊处理的资源
+		resizeGrid:"resizeGrid"	// 用于窗口或dialog大小调整
 	},
 	isOverAxis: function(x, reference, size) {
 		//Determines when x coordinate is over "b" element axis
@@ -22,7 +27,11 @@ var DWZ = {
 	
 	pageInfo: {pageNum:"pageNum", numPerPage:"numPerPage", orderField:"orderField", orderDirection:"orderDirection"},
 	statusCode: {ok:200, error:300, timeout:301},
-	ui:{sbar:true},
+	keys: {statusCode:"statusCode", message:"message"},
+	ui:{
+		sbar:true,
+		hideMode:'display' //navTab组件切换的隐藏方式，支持的值有’display’，’offsets’负数偏移位置的值，默认值为’display’
+	},
 	frag:{}, //page fragment
 	_msg:{}, //alert message
 	_set:{
@@ -33,7 +42,7 @@ var DWZ = {
 	msg:function(key, args){
 		var _format = function(str,args) {
 			args = args || [];
-			var result = str
+			var result = str || "";
 			for (var i = 0; i < args.length; i++){
 				result = result.replace(new RegExp("\\{" + i + "\\}", "g"), args[i]);
 			}
@@ -54,7 +63,31 @@ var DWZ = {
 			window.location = DWZ._set.loginUrl;
 		}
 	},
-
+	
+	/*
+	 * json to string
+	 */
+	obj2str:function(o) {
+		var r = [];
+		if(typeof o =="string") return "\""+o.replace(/([\'\"\\])/g,"\\$1").replace(/(\n)/g,"\\n").replace(/(\r)/g,"\\r").replace(/(\t)/g,"\\t")+"\"";
+		if(typeof o == "object"){
+			if(!o.sort){
+				for(var i in o)
+					r.push(i+":"+DWZ.obj2str(o[i]));
+				if(!!document.all && !/^\n?function\s*toString\(\)\s*\{\n?\s*\[native code\]\n?\s*\}\n?\s*$/.test(o.toString)){
+					r.push("toString:"+o.toString.toString());
+				}
+				r="{"+r.join()+"}"
+			}else{
+				for(var i =0;i<o.length;i++) {
+					r.push(DWZ.obj2str(o[i]));
+				}
+				r="["+r.join()+"]"
+			}
+			return r;
+		}
+		return o.toString();
+	},
 	jsonEval:function(data) {
 		try{
 			if ($.type(data) == 'string')
@@ -75,30 +108,28 @@ var DWZ = {
 		}
 	},
 	ajaxDone:function(json){
-		if (json.statusCode === undefined && json.message === undefined) { // for iframeCallback
-			if (alertMsg) return alertMsg.error(json);
-			else return alert(json);
-		} 
-		if(json.statusCode == DWZ.statusCode.error) {
-			if(json.message && alertMsg) alertMsg.error(json.message);
-		} else if (json.statusCode == DWZ.statusCode.timeout) {
-			if(alertMsg) alertMsg.error(json.message || DWZ.msg("sessionTimout"), {okCall:DWZ.loadLogin});
+		if(json[DWZ.keys.statusCode] == DWZ.statusCode.error) {
+			if(json[DWZ.keys.message] && alertMsg) alertMsg.error(json[DWZ.keys.message]);
+		} else if (json[DWZ.keys.statusCode] == DWZ.statusCode.timeout) {
+			if(alertMsg) alertMsg.error(json[DWZ.keys.message] || DWZ.msg("sessionTimout"), {okCall:DWZ.loadLogin});
 			else DWZ.loadLogin();
-		} else {
-			if(json.message && alertMsg) alertMsg.correct(json.message);
+		} else if (json[DWZ.keys.statusCode] == DWZ.statusCode.ok){
+			if(json[DWZ.keys.message] && alertMsg) alertMsg.correct(json[DWZ.keys.message]);
 		};
 	},
 
 	init:function(pageFrag, options){
 		var op = $.extend({
 				loginUrl:"login.html", loginTitle:null, callback:null, debug:false, 
-				statusCode:{}
+				statusCode:{}, keys:{}
 			}, options);
 		this._set.loginUrl = op.loginUrl;
 		this._set.loginTitle = op.loginTitle;
 		this._set.debug = op.debug;
 		$.extend(DWZ.statusCode, op.statusCode);
+		$.extend(DWZ.keys, op.keys);
 		$.extend(DWZ.pageInfo, op.pageInfo);
+		$.extend(DWZ.ui, op.ui);
 		
 		jQuery.ajax({
 			type:'GET',
@@ -123,6 +154,16 @@ var DWZ = {
 				if (jQuery.isFunction(op.callback)) op.callback();
 			}
 		});
+		
+		var _doc = $(document);
+		if (!_doc.isBind(DWZ.eventType.pageClear)) {
+			_doc.bind(DWZ.eventType.pageClear, function(event){
+				var box = event.target;
+				if ($.fn.xheditor) {
+					$("textarea.editor", box).xheditor(false);
+				}
+			});
+		}
 	}
 };
 
@@ -140,9 +181,8 @@ var DWZ = {
 		 */
 		ajaxUrl: function(op){
 			var $this = $(this);
-			if ($.fn.xheditor) {
-				$("textarea.editor", $this).xheditor(false);
-			}
+
+			$this.trigger(DWZ.eventType.pageClear);
 			
 			$.ajax({
 				type: op.type || 'GET',
@@ -152,23 +192,29 @@ var DWZ = {
 				success: function(response){
 					var json = DWZ.jsonEval(response);
 					
-					if (json.statusCode==DWZ.statusCode.timeout){
-						alertMsg.error(json.message || DWZ.msg("sessionTimout"), {okCall:function(){
-							if ($.pdialog) $.pdialog.checkTimeout();
-							if (navTab) navTab.checkTimeout();
-	
-							DWZ.loadLogin();
-						}});
-					} 
-					
-					if (json.statusCode==DWZ.statusCode.error){
-						if (json.message) alertMsg.error(json.message);
+					if (json[DWZ.keys.statusCode]==DWZ.statusCode.error){
+						if (json[DWZ.keys.message]) alertMsg.error(json[DWZ.keys.message]);
 					} else {
 						$this.html(response).initUI();
 						if ($.isFunction(op.callback)) op.callback(response);
 					}
+					
+					if (json[DWZ.keys.statusCode]==DWZ.statusCode.timeout){
+						if ($.pdialog) $.pdialog.checkTimeout();
+						if (navTab) navTab.checkTimeout();
+	
+						alertMsg.error(json[DWZ.keys.message] || DWZ.msg("sessionTimout"), {okCall:function(){
+							DWZ.loadLogin();
+						}});
+					} 
+					
 				},
-				error: DWZ.ajaxError
+				error: DWZ.ajaxError,
+				statusCode: {
+					503: function(xhr, ajaxOptions, thrownError) {
+						alert(DWZ.msg("statusCode_503") || thrownError);
+					}
+				}
 			});
 		},
 		loadUrl: function(url,data,callback){
@@ -198,13 +244,15 @@ var DWZ = {
 				}
 			});
 		},
-		hoverClass: function(className){
+		hoverClass: function(className, speed){
 			var _className = className || "hover";
 			return this.each(function(){
-				$(this).hover(function(){
-					$(this).addClass(_className);
+				var $this = $(this), mouseOutTimer;
+				$this.hover(function(){
+					if (mouseOutTimer) clearTimeout(mouseOutTimer);
+					$this.addClass(_className);
 				},function(){
-					$(this).removeClass(_className);
+					mouseOutTimer = setTimeout(function(){$this.removeClass(_className);}, speed||10);
 				});
 			});
 		},
@@ -233,7 +281,7 @@ var DWZ = {
 						top:position.top+'px',
 						left:position.left +'px',
 						opacity:opacity || 1
-					}
+					};
 				}
 				if (getAltBox().size() < 1) {
 					if (!$this.attr("id")) $this.attr("id", $this.attr("name") + "_" +Math.round(Math.random()*10000));
@@ -303,6 +351,9 @@ var DWZ = {
 		},
 		trans:function(){
 			return this.replace(/&lt;/g, '<').replace(/&gt;/g,'>').replace(/&quot;/g, '"');
+		},
+		encodeTXT: function(){
+			return (this).replaceAll('&', '&amp;').replaceAll("<","&lt;").replaceAll(">", "&gt;").replaceAll(" ", "&nbsp;");
 		},
 		replaceAll:function(os, ns){
 			return this.replace(new RegExp(os,"gm"),ns);

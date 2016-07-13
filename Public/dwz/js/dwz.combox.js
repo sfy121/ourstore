@@ -18,6 +18,31 @@
 		});
 	};
 	
+	var _onchange = function (event){
+		var $ref = $("#"+event.data.ref);
+		if ($ref.size() == 0) return false;
+		$.ajax({
+			type:'POST', dataType:"json", url:event.data.refUrl.replace("{value}", encodeURIComponent(event.data.$this.attr("value"))), cache: false,
+			data:{},
+			success: function(json){
+				if (!json) return;
+				var html = '';
+
+				$.each(json, function(i){
+					if (json[i] && json[i].length > 1){
+						html += '<option value="'+json[i][0]+'">' + json[i][1] + '</option>';
+					}
+				});
+				
+				var $refCombox = $ref.parents("div.combox:first");
+				$ref.html(html).insertAfter($refCombox);
+				$refCombox.remove();
+				$ref.trigger("change").combox();
+			},
+			error: DWZ.ajaxError
+		});
+	};
+					
 	$.extend($.fn, {
 		comboxSelect: function(options){
 			var op = $.extend({ selector: ">a" }, options);
@@ -59,7 +84,7 @@
 					
 					var $input = $("select", box);
 					if ($input.val() != $this.attr("value")) {
-						$("select", box).val($this.attr("value")).trigger("refChange").trigger("change");
+						$("select", box).val($this.attr("value")).trigger("change");
 					}
 				});
 			});
@@ -79,7 +104,7 @@
 			return this.each(function(i){
 				var $this = $(this).removeClass("combox");
 				var name = $this.attr("name");
-				var value= $this.attr("value");
+				var value= $this.val();
 				var label = $("option[value=" + value + "]",$this).text();
 				var ref = $this.attr("ref");
 				var refUrl = $this.attr("refUrl") || "";
@@ -99,31 +124,7 @@
 				$("div.select", $this.next()).comboxSelect().append($this);
 				
 				if (ref && refUrl) {
-					
-					$this.unbind("refChange").bind("refChange", function(event){
-						var $ref = $("#"+ref);
-						if ($ref.size() == 0) return false;
-						$.ajax({
-							type:'GET', dataType:"json", url:refUrl.replace("{value}", $this.attr("value")), cache: false,
-							data:{},
-							success: function(json){
-								if (!json) return;
-								var html = '';
-	
-								$.each(json, function(i){
-									if (json[i] && json[i].length > 1){
-										html += '<option value="'+json[i][0]+'">' + json[i][1] + '</option>';
-									}
-								});
-								
-								var $refCombox = $ref.parents("div.combox:first");
-								$ref.html(html).insertAfter($refCombox);
-								$refCombox.remove();
-								$ref.trigger("refChange").trigger("change").combox();
-							},
-							error: DWZ.ajaxError
-						});
-					});
+					$this.unbind("change", _onchange).bind("change", {ref:ref, refUrl:refUrl, $this:$this}, _onchange);
 				}
 				
 			});

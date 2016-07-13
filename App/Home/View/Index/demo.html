@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>TP</title>
+</head>
+<body>
+	<h1>ThinkPHP框架实例--模板 只负责输出</h1>
+	<ul>
+		<li>输出变量$name:{$name}</li>
+		<li>输出数组stu:{$stu.name},{$stu['sex']}</li>
+		<li>默认值输出 你好:{$Think.get.name|default="游客"}</li>
+		<li>输出post方式传值{$Think.post.num}:{$_POST['num']+200}</li>
+		<li>输出日期函数:{:date("Y-m-d")}</li>
+	</ul>
+</body>
+</html>

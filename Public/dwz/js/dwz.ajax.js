@@ -7,22 +7,33 @@
  * 普通ajax表单提交
  * @param {Object} form
  * @param {Object} callback
+ * @param {String} confirmMsg 提示确认信息
  */
-function validateCallback(form, callback) {
+function validateCallback(form, callback, confirmMsg) {
 	var $form = $(form);
+
 	if (!$form.valid()) {
 		return false;
 	}
-
-	$.ajax({
-		type: form.method || 'POST',
-		url:$form.attr("action"),
-		data:$form.serializeArray(),
-		dataType:"json",
-		cache: false,
-		success: callback || DWZ.ajaxDone,
-		error: DWZ.ajaxError
-	});
+	
+	var _submitFn = function(){
+		$.ajax({
+			type: form.method || 'POST',
+			url:$form.attr("action"),
+			data:$form.serializeArray(),
+			dataType:"json",
+			cache: false,
+			success: callback || DWZ.ajaxDone,
+			error: DWZ.ajaxError
+		});
+	}
+	
+	if (confirmMsg) {
+		alertMsg.confirm(confirmMsg, {okCall: _submitFn});
+	} else {
+		_submitFn();
+	}
+	
 	return false;
 }
 /**
@@ -72,7 +83,7 @@ function _iframeResponse(iframe, callback){
 			response = doc.XMLDocument;
 		} else if (doc.body){
 			try{
-				response = $iframe.contents().find("body").html();
+				response = $iframe.contents().find("body").text();
 				response = jQuery.parseJSON(response);
 			} catch (e){ // response is html document or plain text
 				response = doc.body.innerHTML;
@@ -97,18 +108,20 @@ function _iframeResponse(iframe, callback){
  * 
  * form提交后返回json数据结构statusCode=DWZ.statusCode.ok表示操作成功, 做页面跳转等操作. statusCode=DWZ.statusCode.error表示操作失败, 提示错误原因. 
  * statusCode=DWZ.statusCode.timeout表示session超时，下次点击时跳转到DWZ.loginUrl
- * {"statusCode":"200", "message":"操作成功", "navTabId":"navNewsLi", "forwardUrl":"", "callbackType":"closeCurrent"}
+ * {"statusCode":"200", "message":"操作成功", "navTabId":"navNewsLi", "forwardUrl":"", "callbackType":"closeCurrent", "rel"."xxxId"}
  * {"statusCode":"300", "message":"操作失败"}
  * {"statusCode":"301", "message":"会话超时"}
  * 
  */
 function navTabAjaxDone(json){
 	DWZ.ajaxDone(json);
-	if (json.statusCode == DWZ.statusCode.ok){
+	if (json[DWZ.keys.statusCode] == DWZ.statusCode.ok){
 		if (json.navTabId){ //把指定navTab页面标记为需要“重新载入”。注意navTabId不能是当前navTab页面的
 			navTab.reloadFlag(json.navTabId);
 		} else { //重新载入当前navTab页面
-			navTabPageBreak({}, json.rel);
+			var $pagerForm = $("#pagerForm", navTab.getCurrentPanel());
+			var args = $pagerForm.size()>0 ? $pagerForm.serializeArray() : {}
+			navTabPageBreak(args, json.rel);
 		}
 		
 		if ("closeCurrent" == json.callbackType) {
@@ -119,12 +132,15 @@ function navTabAjaxDone(json){
 			alertMsg.confirm(json.confirmMsg || DWZ.msg("forwardConfirmMsg"), {
 				okCall: function(){
 					navTab.reload(json.forwardUrl);
+				},
+				cancelCall: function(){
+					navTab.closeCurrentTab(json.navTabId);
 				}
 			});
 		} else {
-			navTab.getCurrentPanel().find(":input[defaultValue]").each(function(){
-				var defaultVal = $(this).attr("defaultValue");
-				$(this).val(defaultVal);
+			navTab.getCurrentPanel().find(":input[initValue]").each(function(){
+				var initVal = $(this).attr("initValue");
+				$(this).val(initVal);
 			});
 		}
 	}
@@ -132,17 +148,20 @@ function navTabAjaxDone(json){
 
 /**
  * dialog上的表单提交回调函数
+ * 当前navTab页面有pagerForm就重新加载
  * 服务器转回navTabId，可以重新载入指定的navTab. statusCode=DWZ.statusCode.ok表示操作成功, 自动关闭当前dialog
  * 
  * form提交后返回json数据结构,json格式和navTabAjaxDone一致
  */
 function dialogAjaxDone(json){
 	DWZ.ajaxDone(json);
-	if (json.statusCode == DWZ.statusCode.ok){
+	if (json[DWZ.keys.statusCode] == DWZ.statusCode.ok){
 		if (json.navTabId){
 			navTab.reload(json.forwardUrl, {navTabId: json.navTabId});
-		} else if (json.rel) {
-			navTabPageBreak({}, json.rel);
+		} else {
+			var $pagerForm = $("#pagerForm", navTab.getCurrentPanel());
+			var args = $pagerForm.size()>0 ? $pagerForm.serializeArray() : {}
+			navTabPageBreak(args, json.rel);
 		}
 		if ("closeCurrent" == json.callbackType) {
 			$.pdialog.closeCurrent();
@@ -274,34 +293,35 @@ function ajaxTodo(url, callback){
 }
 
 /**
- * A function that triggers when all file uploads have completed. There is no default event handler.
- * @param {Object} event: The event object.
- * @param {Object} data: An object containing details about the upload process:
- * 		- filesUploaded: The total number of files uploaded
- * 		- errors: The total number of errors while uploading
- * 		- allBytesLoaded: The total number of bytes uploaded
- * 		- speed: The average speed of all uploaded files	
+ * http://www.uploadify.com/documentation/uploadify/onqueuecomplete/	
  */
-function uploadifyAllComplete(event, data){
-	if (data.errors) {
-		var msg = "The total number of files uploaded: "+data.filesUploaded+"\n"
-			+ "The total number of errors while uploading: "+data.errors+"\n"
-			+ "The total number of bytes uploaded: "+data.allBytesLoaded+"\n"
-			+ "The average speed of all uploaded files: "+data.speed;
-		alert("event:" + event + "\n" + msg);
+function uploadifyQueueComplete(queueData){
+
+	var msg = "The total number of files uploaded: "+queueData.uploadsSuccessful+"<br/>"
+		+ "The total number of errors while uploading: "+queueData.uploadsErrored+"<br/>"
+		+ "The total number of bytes uploaded: "+queueData.queueBytesUploaded+"<br/>"
+		+ "The average speed of all uploaded files: "+queueData.averageSpeed;
+	
+	if (queueData.uploadsErrored) {
+		alertMsg.error(msg);
+	} else {
+		alertMsg.correct(msg);
 	}
 }
 /**
- * http://www.uploadify.com/documentation/
- * @param {Object} event
- * @param {Object} queueID
- * @param {Object} fileObj
- * @param {Object} response
- * @param {Object} data
+ * http://www.uploadify.com/documentation/uploadify/onuploadsuccess/
  */
-function uploadifyComplete(event, queueId, fileObj, response, data){
-	DWZ.ajaxDone(DWZ.jsonEval(response));
+function uploadifySuccess(file, data, response){
+	alert(data)
 }
+
+/**
+ * http://www.uploadify.com/documentation/uploadify/onuploaderror/
+ */
+function uploadifyError(file, errorCode, errorMsg) {
+	alertMsg.error(errorCode+": "+errorMsg);
+}
+
 
 /**
  * http://www.uploadify.com/documentation/
@@ -364,3 +384,4 @@ $.fn.extend({
 		});
 	}
 });
+

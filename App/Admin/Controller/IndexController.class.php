@@ -1,8 +1,14 @@
 <?php
 namespace Admin\Controller;
-
-class IndexController extends CommonController {
+use Think\Controller;
+class IndexController extends Controller {
     public function index(){
-        $this->display("index");
+
+    	if($_SESSION['user']){
+    		$this->display('index');
+    	}else{
+    		$this->redirect('Admin/Public/login');
+    	}
+      
     }
 }

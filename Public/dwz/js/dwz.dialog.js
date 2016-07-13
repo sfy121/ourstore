@@ -270,7 +270,7 @@
 			}
 			$.pdialog.repaint(target, {oleft:oleft,otop: otop,tmove: tmove,owidth:width});
 			
-			$(window).trigger("resizeGrid");
+			$(window).trigger(DWZ.eventType.resizeGrid);
 		},
 		close:function(dialog) {
 			if(typeof dialog == 'string') dialog = $("body").data(dialog);
@@ -286,11 +286,8 @@
 				}
 				if(!go) return;
 			}
-			if ($.fn.xheditor) {
-				$("textarea.editor", dialog).xheditor(false);
-			}
-			$(dialog).unbind("click").hide();
-			$("div.dialogContent", dialog).html("");
+			
+			$(dialog).hide();
 			$("div.shadow").hide();
 			if($(dialog).data("mask")){
 				$("#dialogBackground").hide();
@@ -298,7 +295,7 @@
 				if ($(dialog).data("id")) $.taskBar.closeDialog($(dialog).data("id"));
 			}
 			$("body").removeData($(dialog).data("id"));
-			$(dialog).remove();
+			$(dialog).trigger(DWZ.eventType.pageClear).remove();
 		},
 		closeCurrent:function(){
 			this.close($.pdialog._current);
@@ -306,7 +303,7 @@
 		checkTimeout:function(){
 			var $conetnt = $(".dialogContent", $.pdialog._current);
 			var json = DWZ.jsonEval($conetnt.html());
-			if (json && json.statusCode == DWZ.statusCode.timeout) this.closeCurrent();
+			if (json && json[DWZ.keys.statusCode] == DWZ.statusCode.timeout) this.closeCurrent();
 		},
 		maxsize:function(dialog) {
 			$(dialog).data("original",{
@@ -357,7 +354,7 @@
 			content.find("[layoutH]").layoutH(content);
 			$(".pageContent", dialog).css("width", (width-14) + "px");
 			
-			$(window).trigger("resizeGrid");
+			$(window).trigger(DWZ.eventType.resizeGrid);
 		}
 	};
 })(jQuery);

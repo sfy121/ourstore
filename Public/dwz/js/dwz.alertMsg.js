@@ -16,6 +16,13 @@ var alertMsg = {
 		return $.regional.alertMsg.title[key];
 	},
 
+	_keydownOk: function(event){
+		if (event.keyCode == DWZ.keyCode.ENTER) event.data.target.trigger("click");
+		return false;
+	},
+	_keydownEsc: function(event){
+		if (event.keyCode == DWZ.keyCode.ESC) event.data.target.trigger("click");
+	},
 	/**
 	 * 
 	 * @param {Object} type
@@ -43,12 +50,23 @@ var alertMsg = {
 		} else {
 			$(this._bgId).show();
 		}
-		var jCallButs = $(this._boxId).find("[rel=callback]");
+		
+		var jButs = $(this._boxId).find("a.button");
+		var jCallButs = jButs.filter("[rel=callback]");
+		var jDoc = $(document);
+		
 		for (var i = 0; i < buttons.length; i++) {
 			if (buttons[i].call) jCallButs.eq(i).click(buttons[i].call);
+			if (buttons[i].keyCode == DWZ.keyCode.ENTER) {
+				jDoc.bind("keydown",{target:jButs.eq(i)}, this._keydownOk);
+			}
+			if (buttons[i].keyCode == DWZ.keyCode.ESC) {
+				jDoc.bind("keydown",{target:jButs.eq(i)}, this._keydownEsc);
+			}
 		}
 	},
 	close: function(){
+		$(document).unbind("keydown", this._keydownOk).unbind("keydown", this._keydownEsc);
 		$(this._boxId).animate({top:-$(this._boxId).height()}, 500, function(){
 			$(this).remove();
 		});
@@ -70,7 +88,7 @@ var alertMsg = {
 		var op = {okName:$.regional.alertMsg.butMsg.ok, okCall:null};
 		$.extend(op, options);
 		var buttons = [
-			{name:op.okName, call: op.okCall}
+			{name:op.okName, call: op.okCall, keyCode:DWZ.keyCode.ENTER}
 		];
 		this._open(type, msg, buttons);
 	},
@@ -83,8 +101,8 @@ var alertMsg = {
 		var op = {okName:$.regional.alertMsg.butMsg.ok, okCall:null, cancelName:$.regional.alertMsg.butMsg.cancel, cancelCall:null};
 		$.extend(op, options);
 		var buttons = [
-			{name:op.okName, call: op.okCall},
-			{name:op.cancelName, call: op.cancelCall}
+			{name:op.okName, call: op.okCall, keyCode:DWZ.keyCode.ENTER},
+			{name:op.cancelName, call: op.cancelCall, keyCode:DWZ.keyCode.ESC}
 		];
 		this._open(this._types.confirm, msg, buttons);
 	}

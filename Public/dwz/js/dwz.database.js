@@ -91,7 +91,7 @@
 			var selectedIndex = -1;
 			return this.each(function(){
 				var $input = $(this).attr('autocomplete', 'off').keydown(function(event){
-					if (event.keyCode == DWZ.keyCode.ENTER) return false; //屏蔽回车提交
+					if (event.keyCode == DWZ.keyCode.ENTER && $(op.suggest$).is(':visible')) return false; //屏蔽回车提交
 				});
 				
 				var suggestFields=$input.attr('suggestFields').split(",");
@@ -124,6 +124,7 @@
 					postData[$input.attr("postField")||"inputValue"] = $input.val();
 
 					$.ajax({
+						global:false,
 						type:'POST', dataType:"json", url:url, cache: false,
 						data: postData,
 						success: function(response){
@@ -138,11 +139,13 @@
 									if (str) {
 										if (liLabel) liLabel += '-';
 										liLabel += str;
-										if (liAttr) liAttr += ',';
-										liAttr += suggestFields[i]+":'"+str+"'";
 									}
 								}
-								html += '<li lookupId="'+this[_lookup.pk]+'" lookupAttrs="'+liAttr+'">' + liLabel + '</li>';
+								for (var key in this) {
+									if (liAttr) liAttr += ',';
+									liAttr += key+":'"+this[key]+"'";
+								}
+								html += '<li lookupAttrs="'+liAttr+'">' + liLabel + '</li>';
 							});
 							
 							var $lis = $suggest.html('<ul>'+html+'</ul>').find("li");
@@ -173,7 +176,7 @@
 					return false;
 				}
 				function _select($item){
-					var jsonStr = "{"+_lookup.pk+":'"+$item.attr('lookupId')+"'," + $item.attr('lookupAttrs') +"}";
+					var jsonStr = "{"+ $item.attr('lookupAttrs') +"}";
 					
 					$.bringBackSuggest(DWZ.jsonEval(jsonStr));
 				}
@@ -226,7 +229,7 @@
 					var $th = $(this);
 					var field = {
 						type: $th.attr("type") || "text",
-						patternDate: $th.attr("format") || "yyyy-MM-dd",
+						patternDate: $th.attr("dateFmt") || "yyyy-MM-dd",
 						name: $th.attr("name") || "",
 						defaultVal: $th.attr("defaultVal") || "",
 						size: $th.attr("size") || "12",
@@ -237,13 +240,21 @@
 						suggestUrl: $th.attr("suggestUrl"),
 						suggestFields: $th.attr("suggestFields"),
 						postField: $th.attr("postField") || "",
-						fieldClass: $th.attr("fieldClass") || ""
+						fieldClass: $th.attr("fieldClass") || "",
+						fieldAttrs: $th.attr("fieldAttrs") || ""
 					};
 					fields.push(field);
 				});
 				
 				$tbody.find("a.btnDel").click(function(){
 					var $btnDel = $(this);
+					
+					if ($btnDel.is("[href^=javascript:]")){
+						$btnDel.parents("tr:first").remove();
+						initSuffix($tbody);
+						return false;
+					}
+					
 					function delDbData(){
 						$.ajax({
 							type:'POST', dataType:"json", url:$btnDel.attr('href'), cache: false,
@@ -293,7 +304,7 @@
 			 */
 			function initSuffix($tbody) {
 				$tbody.find('>tr').each(function(i){
-					$(':input, a.btnLook', this).each(function(){
+					$(':input, a.btnLook, a.btnAttach', this).each(function(){
 						var $this = $(this), name = $this.attr('name'), val = $this.val();
 
 						if (name) $this.attr('name', name.replaceSuffix(i));
@@ -317,6 +328,13 @@
 				
 				var suffixFrag = suffix ? ' suffix="' + suffix + '" ' : '';
 				
+				var attrFrag = '';
+				if (field.fieldAttrs){
+					var attrs = DWZ.jsonEval(field.fieldAttrs);
+					for (var key in attrs) {
+						attrFrag += key+'="'+attrs[key]+'"';
+					}
+				}
 				switch(field.type){
 					case 'del':
 						html = '<a href="javascript:void(0)" class="btnDel '+ field.fieldClass + '">删除</a>';
@@ -334,7 +352,7 @@
 					case 'attach':
 						html = '<input type="hidden" name="'+field.lookupGroup+'.'+field.lookupPk+suffix+'"/>'
 							+ '<input type="text" name="'+field.name+'" size="'+field.size+'" readonly="readonly" class="'+field.fieldClass+'"/>'
-							+ '<a class="btnAttach" href="'+field.lookupUrl+'" lookupGroup="'+field.lookupGroup+'" '+suggestFrag+' lookupPk="'+field.lookupPk+'" width="560" height="300" title="查找带回">查找带回</a>';
+							+ '<a class="btnAttach" href="'+field.lookupUrl+'" lookupGroup="'+field.lookupGroup+'" '+suffixFrag+' lookupPk="'+field.lookupPk+'" width="560" height="300" title="查找带回">查找带回</a>';
 						break;
 					case 'enum':
 						$.ajax({
@@ -347,11 +365,11 @@
 						});
 						break;
 					case 'date':
-						html = '<input type="text" name="'+field.name+'" value="'+field.defaultVal+'" class="date '+field.fieldClass+'" format="'+field.patternDate+'" size="'+field.size+'"/>'
+						html = '<input type="text" name="'+field.name+'" value="'+field.defaultVal+'" class="date '+field.fieldClass+'" dateFmt="'+field.patternDate+'" size="'+field.size+'"/>'
 							+'<a class="inputDateButton" href="javascript:void(0)">选择</a>';
 						break;
 					default:
-						html = '<input type="text" name="'+field.name+'" value="'+field.defaultVal+'" size="'+field.size+'" class="'+field.fieldClass+'"/>';
+						html = '<input type="'+field.type+'" name="'+field.name+'" value="'+field.defaultVal+'" size="'+field.size+'" class="'+field.fieldClass+'" '+attrFrag+'/>';
 						break;
 				}
 				return '<td>'+html+'</td>';
@@ -382,11 +400,16 @@
 				var postType = $this.attr("postType") || "map";
 
 				$this.click(function(){
-					var ids = _getIds(selectedIds, $this.attr("targetType"));
+					var targetType = $this.attr("targetType");
+					var ids = _getIds(selectedIds, targetType);
 					if (!ids) {
 						alertMsg.error($this.attr("warn") || DWZ.msg("alertSelectMsg"));
 						return false;
 					}
+					
+					var _callback = $this.attr("callback") || (targetType == "dialog" ? dialogAjaxDone : navTabAjaxDone);
+					if (! $.isFunction(_callback)) _callback = eval('(' + _callback + ')');
+					
 					function _doPost(){
 						$.ajax({
 							type:'POST', url:$this.attr('href'), dataType:'json', cache: false,
@@ -401,7 +424,7 @@
 									return _data;
 								}
 							}(),
-							success: navTabAjaxDone,
+							success: _callback,
 							error: DWZ.ajaxError
 						});
 					}
